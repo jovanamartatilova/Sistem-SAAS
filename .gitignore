@@ -1,0 +1,12 @@
+# frontend
+saas-magang-frontend/node_modules
+saas-magang-frontend/dist
+
+# backend
+SistemSAAS/vendor
+SistemSAAS/node_modules
+SistemSAAS/.env
+
+# system
+.DS_Store
+Thumbs.db

@@ -6,6 +6,7 @@ const ForgotPassword = () => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
     const [error, setError] = useState('');
 
     const handleSubmit = async (e) => {
@@ -13,9 +14,11 @@ const ForgotPassword = () => {
         setLoading(true);
         setError('');
         try {
-            await api.post('/forgot-password', { email });
+            const res = await api.post('/forgot-password', { email });
+            setSuccessMsg(res.data?.message || 'Link reset dikirim.');
             setSuccess(true);
         } catch (err) {
+            // network/server error
             setError(err.response?.data?.message || 'Gagal mengirim email reset password.');
         } finally {
             setLoading(false);
@@ -60,8 +63,9 @@ const ForgotPassword = () => {
                             <div className="text-4xl mb-3">📧</div>
                             <h3 className="font-semibold text-green-700 mb-2">Email Terkirim!</h3>
                             <p className="text-sm text-green-600 mb-4">
-                                Kami sudah mengirim link reset password ke <strong>{email}</strong>.
-                                Silakan cek inbox atau folder spam kamu.
+                                {successMsg || (
+                                    <>Kami sudah mengirim link reset password ke <strong>{email}</strong>. Silakan cek inbox atau folder spam kamu.</>
+                                )}
                             </p>
                             <Link to="/login" className="text-sm text-amber-500 hover:text-amber-700 font-medium">
                                 ← Kembali ke Login

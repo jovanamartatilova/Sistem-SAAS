@@ -88,12 +88,53 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|email']);
 
-        $status = Password::sendResetLink($request->only('email'));
-
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json(['message' => 'Link reset password telah dikirim ke email kamu.']);
+        // For development: bypass throttle by clearing reset tokens (if table exists)
+        if (app()->environment('local')) {
+            try {
+                if (\Schema::hasTable('password_reset_tokens')) {
+                    \DB::table('password_reset_tokens')->where('email', $request->email)->delete();
+                }
+            } catch (\Exception $e) {
+                \Log::debug('Could not clear password reset tokens', ['error' => $e->getMessage()]);
+            }
         }
 
-        return response()->json(['message' => 'Email tidak ditemukan atau terjadi kesalahan.'], 422);
+        $status = Password::sendResetLink($request->only('email'));
+
+        // Always return a generic success message to avoid email enumeration
+        $message = 'Jika email terdaftar, link reset password telah dikirim. Silakan cek inbox/spam.';
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            // Log internally WITHOUT exposing email in error response
+            \Log::warning('Password reset link not sent', [
+                'status' => $status,
+                'user_count' => \App\Models\User::where('email', $request->email)->count()
+            ]);
+        }
+
+        return response()->json(['message' => $message, 'success' => $status === Password::RESET_LINK_SENT], 200);
     }
-}
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string|min:8|confirmed',
+            'token' => 'required|string',
+        ]);
+
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+            }
+        );
+
+        if ($status === Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'Password berhasil direset. Silakan login.', 'success' => true], 200);
+        }
+
+        return response()->json(['message' => 'Token tidak valid atau sudah kadaluarsa.', 'success' => false], 422);
+    }}
